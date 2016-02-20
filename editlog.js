@@ -117,7 +117,7 @@ function attemptRetryForBadDiff(revid, data, strError, page, strUrl) {
            try {
               var parsed = JSON.parse(body);
            } catch (e) {
-             logError(revid, "JSON parsing error", (body || "") + err, { body: body, data: data }, strUrl);
+             logError(revid, "JSON parsing error", (body || "") + e, { body: body, data: data }, strUrl);
              return;
            }
 
