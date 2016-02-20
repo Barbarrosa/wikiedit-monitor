@@ -94,8 +94,48 @@ function attemptRetryForBadDiff(revid, data, strError, page, strUrl) {
       // to see if any I've logged have been deleted
       // Keep in mind though, there MAY be revdelete types that don't exhibit this behavior?
       
-      logError(revid, "GAVE UP REQUERYING: " + strError, page, strUrl, false);
-      delete oBadDiffs[revid];
+     var opts = {
+        host: 'en.wikipedia.org',
+        path: '/w/api.php',
+        query: {
+          action: 'query',
+          format: 'json',
+          titles: data.title
+        }
+     };
+
+     // https://en.wikipedia.org/w/api.php?action=query&format=json&titles=My%20Charts:%20Top%2010
+     http.get(opts, function (response) {
+        var body = '';
+
+        response.on("data", function (chunk) {
+           body += chunk;
+        });
+
+        response.on("end", function () {
+           try {
+              var parsed = JSON.parse(body);
+           } catch (e) {
+             logError(revid, "JSON parsing error", (body || "") + err, { body: body, data: data }, strUrl);
+             return;
+           }
+
+           if('query' in parsed && 'pages' in parsed.query && '-1' in parsed.query.pages && 'missing' in parsed.query.pages['-1']) {
+             console.log('probably deleted: ' + data.title);
+             logError(revid, "Page Probably Deleted: " + strError, page, strUrl, false);
+           } else {
+             console.log('gave up requerying' + data.title);
+             logError(revid, "GAVE UP REQUERYING: " + strError, page, strUrl, false);
+           }
+        });
+
+        response.on("error", function (err) {
+           console.log('logged http error' + data.title);
+           logError(revid, "http error", { body: body, data: data, err: err }, strUrl);
+        });
+     });
+
+     delete oBadDiffs[revid];
    } else {
       //console.log("***** BADREV (" + revid.toString() + ") " + strError);
       oRevsToGetDiffs[revid] = data;
