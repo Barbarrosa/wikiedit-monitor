@@ -97,12 +97,7 @@ function attemptRetryForBadDiff(revid, data, strError, page, strUrl) {
       
      var opts = {
         host: 'en.wikipedia.org',
-        path: '/w/api.php',
-        query: {
-          action: 'query',
-          format: 'json',
-          titles: data.title
-        }
+        path: '/w/api.php?action=query&format=json&titles=' + escape(data.title)
      };
 
      // https://en.wikipedia.org/w/api.php?action=query&format=json&titles=My%20Charts:%20Top%2010
