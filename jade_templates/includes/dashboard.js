@@ -17,6 +17,26 @@ DataPublisher.prototype._notifySubscribers = function(data){
     }
 };
 
+DataPublisher.prototype._removeOldData = function(){
+    var endTime = ((new Date()).getTime()/1000).toFixed(0);
+    var startTime = endTime - this._timeRange;
+    for(var k in this._lastData.data) {
+        if(this._lastData.data[k].message.timestamp < startTime) {
+            delete this._lastData.data[k];
+        }
+    }
+};
+
+DataPublisher.prototype.applySocketdataMessages = function(messages){
+    if(this._lastData && 'data' in this._lastData) {
+        this._removeOldData();
+        for(var m of messages) {
+            this._lastData.data.push({ message: m });
+        }
+        this._notifySubscribers(this._lastData);
+    }
+};
+
 DataPublisher.prototype.startPolling = function(){
     var that = this;
     var endTime = ((new Date()).getTime()/1000).toFixed(0);
@@ -34,12 +54,13 @@ DataPublisher.prototype.startPolling = function(){
             + '&time_end=' + endTime,
         function(error, data){
             if( ! error) {
+                that._lastData = data;
                 that._notifySubscribers(data);
             }
 
-            setTimeout(function(){
-                that.startPolling();
-            }, that._timeout);
+            // setTimeout(function(){
+            //     that.startPolling();
+            // }, that._timeout);
         }
     );
 };
@@ -173,6 +194,7 @@ ChangesGraph.prototype.updateGraph = function(result){
             return data;
         });
         publisher.startPolling();
+        window.wikiedit_publisher = publisher;
         d3.select('#create_graph_button').on('click', function(){
             var graphE = d3.select('#add_graph');
 
@@ -212,6 +234,13 @@ ChangesGraph.prototype.updateGraph = function(result){
 ));
 
 (function(){
+    var socketdata = [];
+    setInterval(function(){
+        if(socketdata.length > 0) {
+            window.wikiedit_publisher.applySocketdataMessages(socketdata.splice(0, socketdata.length));
+        }
+    }, 500);
+
     var wsElement = d3.select('#rolling_log');
     var wsUrl = wsElement.attr('data-ws-url');
     var wsUiConfig = JSON.parse(wsElement.attr('data-ws-config'));
@@ -225,6 +254,9 @@ ChangesGraph.prototype.updateGraph = function(result){
         if(eventList instanceof Array) {
             for(var ev of eventList) {
                 switch(ev.eventType) {
+                    case 'socketdata':
+                        socketdata.push(ev.data);
+                        break;
                     case 'wikiedits':
 			wsLogArea.insert('div', ':first-child').text(
 			    ev.eventType + ' - '
